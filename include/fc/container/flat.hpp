@@ -10,6 +10,7 @@ namespace fc {
        template<typename Stream, typename T>
        inline void pack( Stream& s, const flat_set<T>& value, uint32_t _max_depth ) {
          FC_ASSERT( _max_depth > 0 );
+         FC_ASSERT( value.size() <= MAX_NUM_ARRAY_ELEMENTS );
          --_max_depth;
          pack( s, unsigned_int((uint32_t)value.size()), _max_depth );
          auto itr = value.begin();
@@ -24,8 +25,8 @@ namespace fc {
          FC_ASSERT( _max_depth > 0 );
          --_max_depth;
          unsigned_int size; unpack( s, size, _max_depth );
+         FC_ASSERT( size.value <= MAX_NUM_ARRAY_ELEMENTS );
          value.clear();
-         FC_ASSERT( size.value*sizeof(T) < MAX_ARRAY_ALLOC_SIZE );
          value.reserve(size.value);
          for( uint32_t i = 0; i < size.value; ++i )
          {
@@ -37,6 +38,7 @@ namespace fc {
        template<typename Stream, typename K, typename... V>
        inline void pack( Stream& s, const flat_map<K,V...>& value, uint32_t _max_depth ) {
          FC_ASSERT( _max_depth > 0 );
+         FC_ASSERT( value.size() <= MAX_NUM_ARRAY_ELEMENTS );
          --_max_depth;
          pack( s, unsigned_int((uint32_t)value.size()), _max_depth );
          auto itr = value.begin();
@@ -52,8 +54,8 @@ namespace fc {
          FC_ASSERT( _max_depth > 0 );
          --_max_depth;
          unsigned_int size; unpack( s, size, _max_depth );
+         FC_ASSERT( size.value <= MAX_NUM_ARRAY_ELEMENTS );
          value.clear();
-         FC_ASSERT( size.value*(sizeof(K)+sizeof(V)) < MAX_ARRAY_ALLOC_SIZE );
          value.reserve(size.value);
          for( uint32_t i = 0; i < size.value; ++i )
          {

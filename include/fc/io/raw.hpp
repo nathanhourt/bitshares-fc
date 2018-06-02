@@ -134,7 +134,8 @@ namespace fc {
 
     template<typename Stream, typename T, size_t N>
     inline void pack( Stream& s, const fc::array<T,N>& v, uint32_t _max_depth ) {
-      s.write((const char*)&v.data[0],N*sizeof(T));
+       static_assert( N <= MAX_NUM_ARRAY_ELEMENTS, "number of elements in array is too large" );
+       s.write((const char*)&v.data[0],N*sizeof(T));
     }
 
     template<typename Stream, typename T>
@@ -146,9 +147,13 @@ namespace fc {
 
     template<typename Stream, typename T, size_t N>
     inline void unpack( Stream& s, fc::array<T,N>& v, uint32_t _max_depth )
-    { try {
-      s.read((char*)&v.data[0],N*sizeof(T));
-    } FC_RETHROW_EXCEPTIONS( warn, "fc::array<type,length>", ("type",fc::get_typename<T>::name())("length",N) ) }
+    {
+       static_assert( N <= MAX_NUM_ARRAY_ELEMENTS, "number of elements in array is too large" );
+       try
+       {
+          s.read((char*)&v.data[0],N*sizeof(T));
+       } FC_RETHROW_EXCEPTIONS( warn, "fc::array<type,length>", ("type",fc::get_typename<T>::name())("length",N) )
+    }
 
     template<typename Stream, typename T>
     inline void unpack( Stream& s, std::shared_ptr<T>& v, uint32_t _max_depth )
@@ -280,7 +285,7 @@ namespace fc {
     template<typename Stream> inline void unpack( Stream& s, std::vector<char>& value, uint32_t _max_depth ) {
        FC_ASSERT( _max_depth > 0 );
        unsigned_int size; fc::raw::unpack( s, size, _max_depth - 1 );
-       FC_ASSERT( size.value < MAX_ARRAY_ALLOC_SIZE );
+       FC_ASSERT( size.value < MAX_SIZE_OF_BYTE_ARRAYS );
        value.resize(size.value);
        if( value.size() )
           s.read( value.data(), value.size() );
@@ -432,6 +437,7 @@ namespace fc {
     template<typename Stream, typename T>
     inline void pack( Stream& s, const std::unordered_set<T>& value, uint32_t _max_depth ) {
        FC_ASSERT( _max_depth > 0 );
+       FC_ASSERT( value.size() <= MAX_NUM_ARRAY_ELEMENTS );
        --_max_depth;
        fc::raw::pack( s, unsigned_int((uint32_t)value.size()), _max_depth );
        auto itr = value.begin();
@@ -446,8 +452,8 @@ namespace fc {
        FC_ASSERT( _max_depth > 0 );
        --_max_depth;
        unsigned_int size; fc::raw::unpack( s, size, _max_depth );
+       FC_ASSERT( size.value <= MAX_NUM_ARRAY_ELEMENTS );
        value.clear();
-       FC_ASSERT( size.value*sizeof(T) < MAX_ARRAY_ALLOC_SIZE );
        value.reserve(size.value);
        for( uint32_t i = 0; i < size.value; ++i )
        {
@@ -477,6 +483,7 @@ namespace fc {
    template<typename Stream, typename K, typename V>
     inline void pack( Stream& s, const std::unordered_map<K,V>& value, uint32_t _max_depth ) {
        FC_ASSERT( _max_depth > 0 );
+       FC_ASSERT( value.size() <= MAX_NUM_ARRAY_ELEMENTS );
        --_max_depth;
        fc::raw::pack( s, unsigned_int((uint32_t)value.size()), _max_depth );
        auto itr = value.begin();
@@ -492,8 +499,8 @@ namespace fc {
        FC_ASSERT( _max_depth > 0 );
        --_max_depth;
        unsigned_int size; fc::raw::unpack( s, size, _max_depth );
+       FC_ASSERT( size.value <= MAX_NUM_ARRAY_ELEMENTS );
        value.clear();
-       FC_ASSERT( size.value*(sizeof(K)+sizeof(V)) < MAX_ARRAY_ALLOC_SIZE );
        value.reserve(size.value);
        for( uint32_t i = 0; i < size.value; ++i )
        {
@@ -505,6 +512,7 @@ namespace fc {
     template<typename Stream, typename K, typename V>
     inline void pack( Stream& s, const std::map<K,V>& value, uint32_t _max_depth ) {
        FC_ASSERT( _max_depth > 0 );
+       FC_ASSERT( value.size() <= MAX_NUM_ARRAY_ELEMENTS );
        --_max_depth;
        fc::raw::pack( s, unsigned_int((uint32_t)value.size()), _max_depth );
        auto itr = value.begin();
@@ -520,8 +528,8 @@ namespace fc {
        FC_ASSERT( _max_depth > 0 );
        --_max_depth;
        unsigned_int size; fc::raw::unpack( s, size, _max_depth );
+       FC_ASSERT( size.value <= MAX_NUM_ARRAY_ELEMENTS );
        value.clear();
-       FC_ASSERT( size.value*(sizeof(K)+sizeof(V)) < MAX_ARRAY_ALLOC_SIZE );
        for( uint32_t i = 0; i < size.value; ++i )
        {
           std::pair<K,V> tmp;
@@ -533,6 +541,7 @@ namespace fc {
     template<typename Stream, typename T>
     inline void pack( Stream& s, const std::deque<T>& value, uint32_t _max_depth ) {
        FC_ASSERT( _max_depth > 0 );
+       FC_ASSERT( value.size() <= MAX_NUM_ARRAY_ELEMENTS );
        --_max_depth;
        fc::raw::pack( s, unsigned_int((uint32_t)value.size()), _max_depth );
        auto itr = value.begin();
@@ -548,7 +557,7 @@ namespace fc {
        FC_ASSERT( _max_depth > 0 );
        --_max_depth;
        unsigned_int size; fc::raw::unpack( s, size, _max_depth );
-       FC_ASSERT( size.value*sizeof(T) < MAX_ARRAY_ALLOC_SIZE );
+       FC_ASSERT( size.value <= MAX_NUM_ARRAY_ELEMENTS );
        value.resize(size.value);
        auto itr = value.begin();
        auto end = value.end();
@@ -561,6 +570,7 @@ namespace fc {
     template<typename Stream, typename T>
     inline void pack( Stream& s, const std::vector<T>& value, uint32_t _max_depth ) {
        FC_ASSERT( _max_depth > 0 );
+       FC_ASSERT( value.size() <= MAX_NUM_ARRAY_ELEMENTS );
        --_max_depth;
        fc::raw::pack( s, unsigned_int((uint32_t)value.size()), _max_depth );
        auto itr = value.begin();
@@ -576,7 +586,7 @@ namespace fc {
        FC_ASSERT( _max_depth > 0 );
        --_max_depth;
        unsigned_int size; fc::raw::unpack( s, size, _max_depth );
-       FC_ASSERT( size.value*sizeof(T) < MAX_ARRAY_ALLOC_SIZE );
+       FC_ASSERT( size.value <= MAX_NUM_ARRAY_ELEMENTS );
        value.resize(size.value);
        auto itr = value.begin();
        auto end = value.end();
@@ -589,6 +599,7 @@ namespace fc {
     template<typename Stream, typename T>
     inline void pack( Stream& s, const std::set<T>& value, uint32_t _max_depth ) {
        FC_ASSERT( _max_depth > 0 );
+       FC_ASSERT( value.size() <= MAX_NUM_ARRAY_ELEMENTS );
        --_max_depth;
        fc::raw::pack( s, unsigned_int((uint32_t)value.size()), _max_depth );
        auto itr = value.begin();
@@ -604,6 +615,7 @@ namespace fc {
        FC_ASSERT( _max_depth > 0 );
        --_max_depth;
        unsigned_int size; fc::raw::unpack( s, size, _max_depth );
+       FC_ASSERT( size.value <= MAX_NUM_ARRAY_ELEMENTS );
        for( uint64_t i = 0; i < size.value; ++i )
        {
           T tmp;
