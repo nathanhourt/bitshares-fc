@@ -314,6 +314,9 @@ public:
 
     template<typename T>
     bool is_type() const { return _tag == tag<T>::value; }
+
+    template<typename T>
+    static constexpr bool can_store() { return typelist::contains<list, T>(); }
 };
 template<> class static_variant<> {
 public:
