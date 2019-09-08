@@ -311,6 +311,11 @@ public:
     }
 
     tag_type which() const {return _tag;}
+    const char* content_typename() const {
+       return typelist::runtime::dispatch(list(), _tag, [](auto t) {
+          return get_typename<typename decltype(t)::type>::name();
+       });
+    }
 
     template<typename T>
     bool is_type() const { return _tag == tag<T>::value; }
