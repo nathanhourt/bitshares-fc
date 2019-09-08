@@ -80,20 +80,6 @@ struct inherited_field_reflection {
 };
 
 namespace impl {
-/// Helper template to create a @ref field_reflection without any commas (makes it macro-friendly)
-template<typename Container>
-struct Reflect_type {
-   template<typename Member>
-   struct with_field_type {
-      template<std::size_t Index>
-      struct at_index {
-         template<Member Container::*field>
-         struct with_field_pointer {
-            using type = field_reflection<Index, Container, Member, field>;
-         };
-      };
-   };
-};
 /// Template to make a transformer of a @ref field_reflection from a base class to a derived class
 template<typename Derived>
 struct Derivation_reflection_transformer {
@@ -115,9 +101,7 @@ struct Derivation_reflection_transformer {
    ::add_list<typelist::transform<reflector<base>::members, impl::Derivation_reflection_transformer<derived>>>
 /// Macro to concatenate a new @ref field_reflection to a typelist
 #define FC_CONCAT_MEMBER_REFLECTION(r, container, idx, member) \
-   ::add<typename impl::Reflect_type<container>::template with_field_type<decltype(container::member)> \
-                                               ::template at_index<idx> \
-                                               ::template with_field_pointer<&container::member>::type>
+   ::add<field_reflection<idx, container, decltype(container::member), &container::member>>
 #define FC_REFLECT_MEMBER_NAME(r, container, idx, member) \
    template<> struct member_name<container, idx> { constexpr static const char* value = BOOST_PP_STRINGIZE(member); };
 #define FC_REFLECT_TEMPLATE_MEMBER_NAME(r, data, idx, member) \
@@ -398,3 +382,72 @@ namespace fc { \
   template<> struct get_typename<TYPE>  { static const char* name()  { return BOOST_PP_STRINGIZE(TYPE);  } }; \
 }
 
+#define FC_INTERNAL_MEMBER_REFLECTION(r, container, idx, member) \
+   , BOOST_PP_SEQ_ENUM((fc::field_reflection<idx)(container)(decltype(container::member))(&container::member>))
+
+/**
+ *  @def FC_REFLECT_INTERNAL(TYPE,MEMBERS)
+ *  @brief Reflects members of TYPE from within the class
+ *
+ *  @param MEMBERS - a sequence of member names.  (field1)(field2)(field3)
+ *
+ *  This macro may be used from within the public interface of a class to reflect its members. Note that to complete
+ *  the reflection, FC_COMPLETE_INTERNAL_REFLECTION(TYPE) must still be invoked from the global namespace.
+ */
+#define FC_REFLECT_INTERNAL( TYPE, MEMBERS ) \
+   struct FC_internal_reflection { \
+      using type = TYPE; \
+      /* FC_INTERNAL_MEMBER_REFLECTION always has a leading comma, so pre-pack the list with a void and slice it */ \
+      using members = typename fc::typelist::slice<fc::typelist::list<void \
+         BOOST_PP_SEQ_FOR_EACH_I( FC_INTERNAL_MEMBER_REFLECTION, TYPE, MEMBERS ) >, 1>; \
+      FC_REFLECT_DERIVED_IMPL_INLINE( TYPE, BOOST_PP_SEQ_NIL, MEMBERS ) \
+   };
+
+/**
+ *  @def FC_COMPLETE_INTERNAL_REFLECTION(TYPE)
+ *  @brief Complete reflection of a type with internal reflection definitions
+ */
+#define FC_COMPLETE_INTERNAL_REFLECTION( TYPE ) \
+namespace fc { \
+   template<> struct get_typename<TYPE> { \
+      static const char* name() { return BOOST_PP_STRINGIZE(TYPE); } \
+   }; \
+   template<> struct reflector<TYPE> { \
+      using type = TYPE; \
+      using is_defined = std::true_type; \
+      using native_members = TYPE::FC_internal_reflection::members; \
+      using inherited_members = typelist::list<>; \
+      using members = native_members; \
+      using base_classes = typelist::list<>; \
+      enum member_count_enum { \
+         local_member_count = typelist::length<members>(), \
+         total_member_count = local_member_count \
+      }; \
+      template<typename Visitor> \
+      static inline void visit(const Visitor& v) { TYPE::FC_internal_reflection::visit(v); } \
+   }; \
+}
+/**
+ *  @def FC_COMPLETE_INTERNAL_REFLECTION_TEMPLATE(TYPE)
+ *  @brief Complete reflection of a type with internal reflection definitions
+ */
+#define FC_COMPLETE_INTERNAL_REFLECTION_TEMPLATE( TEMPLATE_ARGS, TYPE ) \
+namespace fc { \
+   template<BOOST_PP_SEQ_ENUM(TEMPLATE_ARGS)> struct get_typename<TYPE> { \
+      static const char* name() { return BOOST_PP_STRINGIZE(TYPE); } \
+   }; \
+   template<BOOST_PP_SEQ_ENUM(TEMPLATE_ARGS)> struct reflector<TYPE> { \
+      using type = TYPE; \
+      using is_defined = std::true_type; \
+      using native_members = typename TYPE::FC_internal_reflection::members; \
+      using inherited_members = typelist::list<>; \
+      using members = native_members; \
+      using base_classes = typelist::list<>; \
+      enum member_count_enum { \
+         local_member_count = typelist::length<members>(), \
+         total_member_count = local_member_count \
+      }; \
+      template<typename Visitor> \
+      static inline void visit(const Visitor& v) { TYPE::FC_internal_reflection::visit(v); } \
+   }; \
+}

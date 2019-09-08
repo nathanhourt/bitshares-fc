@@ -1,6 +1,8 @@
 #include <boost/test/unit_test.hpp>
 
 #include <fc/exception/exception.hpp>
+#include <fc/io/json.hpp>
+#include <fc/reflect/variant.hpp>
 
 #include <type_traits>
 
@@ -15,11 +17,32 @@ struct reflect_layer_1 { reflect_test_base b; int32_t n; };
 struct reflect_layer_2 { reflect_layer_1 l1; reflect_test_derived d; };
 struct reflect_layer_3 { reflect_layer_2 l2; int32_t i; };
 
+struct reflect_test_internal {
+   int x = 7;
+   char y = 'A';
+
+   FC_REFLECT_INTERNAL(reflect_test_internal, (x)(y))
+};
+
+template<typename T, typename = void>
+struct reflect_internal_sfinae {
+   int x = 100;
+   FC_REFLECT_INTERNAL(reflect_internal_sfinae, (x))
+};
+template<typename T>
+struct reflect_internal_sfinae<T, std::enable_if_t<std::is_same<T, char>{}>> {
+   int x = 200;
+   std::string y = "hi";
+   FC_REFLECT_INTERNAL(reflect_internal_sfinae, (x)(y))
+};
+
 FC_REFLECT( reflect_test_base, (x)(y) );
 FC_REFLECT_DERIVED( reflect_test_derived, (reflect_test_base), (z) );
 FC_REFLECT( reflect_layer_1, (b)(n) );
 FC_REFLECT( reflect_layer_2, (l1)(d) );
 FC_REFLECT( reflect_layer_3, (l2)(i) );
+FC_COMPLETE_INTERNAL_REFLECTION(reflect_test_internal);
+FC_COMPLETE_INTERNAL_REFLECTION_TEMPLATE((typename T), reflect_internal_sfinae<T>);
 
 BOOST_AUTO_TEST_SUITE( fc_reflection )
 
@@ -75,6 +98,11 @@ BOOST_AUTO_TEST_CASE( reflection_static_tests )
                                                  fc::typelist::list<std::integral_constant<size_t, 2>, char>,
                                                  fc::typelist::list<std::integral_constant<size_t, 3>, double>>
                  >::value, "");
+   static_assert(fc::typelist::length<fc::reflector<reflect_test_internal>::members>() == 2, "");
+   static_assert(std::is_same<fc::typelist::at<fc::reflector<reflect_test_internal>::members, 0>::type, int>{}, "");
+   static_assert(std::is_same<fc::typelist::at<fc::reflector<reflect_test_internal>::members, 1>::type, char>{}, "");
+   static_assert(fc::typelist::length<fc::reflector<reflect_internal_sfinae<bool>>::members>() == 1, "");
+   static_assert(fc::typelist::length<fc::reflector<reflect_internal_sfinae<char>>::members>() == 2, "");
 }
 
 BOOST_AUTO_TEST_CASE( typelist_dispatch_test )
@@ -85,6 +113,22 @@ BOOST_AUTO_TEST_CASE( typelist_dispatch_test )
    BOOST_CHECK_EQUAL(fc::typelist::runtime::dispatch(list(), 1ul, get_name), "bool");
    BOOST_CHECK_EQUAL(fc::typelist::runtime::dispatch(list(), 2ul, get_name), "char");
 }
+
+struct internal_checker {
+   reflect_test_internal& rti;
+   template<typename Value, typename Container, Value Container::*ptr,
+            std::enable_if_t<std::is_same<Value, int>{}, bool> = true>
+   void operator()(const char* name) const {
+      BOOST_CHECK(std::string(name) == "x");
+      BOOST_CHECK(rti.*ptr == 7);
+   }
+   template<typename Value, typename Container, Value Container::*ptr,
+            std::enable_if_t<std::is_same<Value, char>{}, bool> = true>
+   void operator()(const char* name) const {
+      BOOST_CHECK(std::string(name) == "y");
+      BOOST_CHECK(rti.*ptr == 'A');
+   }
+};
 
 // Helper template to use fc::typelist::at without a comma, for macro friendliness
 template<typename T> struct index_from { template<std::size_t idx> using at = fc::typelist::at<T, idx>; };
@@ -121,6 +165,13 @@ BOOST_AUTO_TEST_CASE( reflection_get_test )
                ::at<1>::reflector::members>::at<1>::get(l3.l2.d) == 'a');
    BOOST_CHECK(index_from<index_from<index_from<fc::reflector<reflect_layer_3>::members>::at<0>::reflector::members>
                ::at<1>::reflector::members>::at<2>::get(l3.l2.d) == 3.14);
+
+   reflect_test_internal internal;
+   internal_checker checker{internal};
+   fc::reflector<reflect_test_internal>::visit(checker);
+
+   BOOST_CHECK_EQUAL(fc::json::to_string(reflect_internal_sfinae<int>()), std::string("{\"x\":100}"));
+   BOOST_CHECK_EQUAL(fc::json::to_string(reflect_internal_sfinae<char>()), std::string("{\"x\":200,\"y\":\"hi\"}"));
 } FC_CAPTURE_LOG_AND_RETHROW( (0) ) }
 
 BOOST_AUTO_TEST_SUITE_END()
