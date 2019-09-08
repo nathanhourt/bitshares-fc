@@ -247,27 +247,27 @@ public:
         }
     }
     template<typename visitor>
-    typename visitor::result_type visit(visitor& v) {
+    auto visit(visitor& v) {
         return visit( _tag, v, (void*) storage.data() );
     }
 
     template<typename visitor>
-    typename visitor::result_type visit(const visitor& v) {
+    auto visit(const visitor& v) {
         return visit( _tag, v, (void*) storage.data() );
     }
 
     template<typename visitor>
-    typename visitor::result_type visit(visitor& v)const {
+    auto visit(visitor& v)const {
         return visit( _tag, v, (const void*) storage.data() );
     }
 
     template<typename visitor>
-    typename visitor::result_type visit(const visitor& v)const {
+    auto visit(const visitor& v)const {
         return visit( _tag, v, (const void*) storage.data() );
     }
 
     template<typename visitor>
-    static typename visitor::result_type visit( tag_type tag, visitor& v, void* data )
+    static auto visit( tag_type tag, visitor& v, void* data )
     {
         FC_ASSERT( tag >= 0 && tag < count(), "Unsupported type ${tag}!", ("tag",tag) );
         return typelist::runtime::dispatch(list(), tag, [&v, data](auto t) {
@@ -276,7 +276,7 @@ public:
     }
 
     template<typename visitor>
-    static typename visitor::result_type visit( tag_type tag, const visitor& v, void* data )
+    static auto visit( tag_type tag, const visitor& v, void* data )
     {
         FC_ASSERT( tag >= 0 && tag < count(), "Unsupported type ${tag}!", ("tag",tag) );
         return typelist::runtime::dispatch(list(), tag, [&v, data](auto t) {
@@ -285,7 +285,7 @@ public:
     }
 
     template<typename visitor>
-    static typename visitor::result_type visit( tag_type tag, visitor& v, const void* data )
+    static auto visit( tag_type tag, visitor& v, const void* data )
     {
         FC_ASSERT( tag >= 0 && tag < count(), "Unsupported type ${tag}!", ("tag",tag) );
         return typelist::runtime::dispatch(list(), tag, [&v, data](auto t) {
@@ -294,7 +294,7 @@ public:
     }
 
     template<typename visitor>
-    static typename visitor::result_type visit( tag_type tag, const visitor& v, const void* data )
+    static auto visit( tag_type tag, const visitor& v, const void* data )
     {
         FC_ASSERT( tag >= 0 && tag < count(), "Unsupported type ${tag}!", ("tag",tag) );
         return typelist::runtime::dispatch(list(), tag, [&v, data](auto t) {
