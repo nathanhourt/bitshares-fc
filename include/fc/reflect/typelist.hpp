@@ -48,10 +48,10 @@ struct make_sequence {
                                 list<std::integral_constant<std::size_t, count-1>>>::type;
 };
 
-template<typename, typename> struct transform;
-template<typename... List, typename Transformer>
+template<typename, template<typename> class> struct transform;
+template<typename... List, template<typename> class Transformer>
 struct transform<list<List...>, Transformer> {
-   using type = list<typename Transformer::template transform<List>::type...>;
+   using type = list<typename Transformer<List>::type...>;
 };
 
 template<typename Search, typename List> struct index_of;
@@ -166,7 +166,7 @@ struct builder {
 };
 
 /// Transform elements of a typelist
-template<typename List, typename Transformer>
+template<typename List, template<typename> class Transformer>
 using transform = typename impl::transform<List, Transformer>::type;
 
 /// Get the index of the given type within a list, or -1 if type is not found

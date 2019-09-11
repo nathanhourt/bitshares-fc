@@ -98,7 +98,8 @@ struct Derivation_reflection_transformer {
 
 /// Macro to transform reflected fields of a base class to a derived class and concatenate them to a type list
 #define FC_CONCAT_BASE_MEMBER_REFLECTIONS(r, derived, base) \
-   ::add_list<typelist::transform<reflector<base>::members, impl::Derivation_reflection_transformer<derived>>>
+   ::add_list<typelist::transform<reflector<base>::members, \
+                                  impl::Derivation_reflection_transformer<derived>::template transform>>
 /// Macro to concatenate a new @ref field_reflection to a typelist
 #define FC_CONCAT_MEMBER_REFLECTION(r, container, idx, member) \
    ::add<field_reflection<idx, container, decltype(container::member), &container::member>>
