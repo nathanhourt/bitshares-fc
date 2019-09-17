@@ -149,7 +149,7 @@ constexpr static std::size_t length() { return apply<List, impl::length>::value;
 template<typename... Lists>
 using concat = typename impl::concat<Lists...>::type;
 
-/// Create a list of sequential integers ranging from [0, count)
+/// Create a list of sequential integral_constants ranging from [0, count)
 template<std::size_t count>
 using make_sequence = typename impl::make_sequence<count>::type;
 
@@ -168,6 +168,15 @@ struct builder {
 /// Transform elements of a typelist
 template<typename List, template<typename> class Transformer>
 using transform = typename impl::transform<List, Transformer>::type;
+
+/// Convert a filter to a transformer that returns a boolean integral_constant
+/// i.e. transform<make_sequence<5>, transformer_from_filter<is_odd>::transformer> would yield
+/// list<false, true, false, true, false>
+template<template<typename> class Filter>
+struct transformer_from_filter {
+   template<typename T>
+   struct transformer { using type = std::integral_constant<bool, Filter<T>::value>; };
+};
 
 /// Get the index of the given type within a list, or -1 if type is not found
 template<typename List, typename T>
@@ -192,6 +201,19 @@ using first = at<List, 0>;
 template<typename List>
 using last = at<List, length<List>()-1>;
 
+/// Transformer for use on lists-of-lists, which selects the Nth element from each sublist
+/// i.e. transform<list<list<0, 1>, list<2, 3>, list<4, 5>>, select_element<1>::transformer> yields list<1, 3, 5>
+template<std::size_t SelectIndex>
+struct select_element {
+   template<typename T>
+   struct transformer { using type = at<T, SelectIndex>; };
+};
+
+/// Add indexes to types in the list, i.e. index<list<A, B, C>> == list<list<0, A>, list<1, B>, list<2, C>> where
+/// 0, 1, and 2 are std::integral_constants of type std::size_t
+template<typename List>
+using index = typename impl::zip<typename impl::make_sequence<length<List>()>::type, List>::type;
+
 /// Get the list with the element at the given index removed
 template<typename List, std::size_t index>
 using remove_at = typename impl::remove_at<list<>, List, index>::type;
@@ -210,6 +232,17 @@ struct invert_filter {
    template<typename T>
    struct type { constexpr static bool value = !Filter<T>::value; };
 };
+/// Template to modify a filter to apply to an indexed list
+template<template<typename> class Filter>
+struct indexed_filter {
+   template<typename T>
+   struct type { constexpr static bool value = Filter<last<T>>::value; };
+};
+
+/// Template to create an index map from a filter such that at<map, filtered_index> == unfiltered_index
+template<typename List, template<typename> class Filter>
+using filter_index_map = transform<filter<index<List>, indexed_filter<Filter>::template type>,
+                                   select_element<0>::transformer>;
 
 /// Take the sublist at indexes [start, end)
 template<typename List, std::size_t start, std::size_t end = length<List>()>
@@ -218,11 +251,6 @@ using slice = typename impl::slice<list<>, List, start, end>::type;
 /// Zip two equal-length typelists together, i.e. zip<list<X, Y>, list<A, B>> == list<list<X, A>, list<Y, B>>
 template<typename ListA, typename ListB>
 using zip = typename impl::zip<ListA, ListB>::type;
-
-/// Add indexes to types in the list, i.e. index<list<A, B, C>> == list<list<0, A>, list<1, B>, list<2, C>> where
-/// 0, 1, and 2 are std::integral_constants of type std::size_t
-template<typename List>
-using index = typename impl::zip<typename impl::make_sequence<length<List>()>::type, List>::type;
 
 /// This namespace contains some utilities that provide runtime operations on typelists
 namespace runtime {
@@ -257,6 +285,13 @@ template<typename... Types, typename Callable>
 void for_each(list<Types...>, Callable c) {
    bool trues[] = { [](Callable& c, auto t) { c(t); return true; }(c, wrapper<Types>())... };
    (void)(trues);
+}
+
+/// @brief Convert a typelist to an array
+/// @note All types in list must be default-constructible and convertible to Value
+template<typename Value, typename... Types>
+std::array<Value, length<list<Types...>>()> make_array(list<Types...>) {
+   return {Types()...};
 }
 
 } } } // namespace fc::typelist::runtime
