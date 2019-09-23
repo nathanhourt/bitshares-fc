@@ -23,6 +23,10 @@ template<typename, template<typename...> class> struct apply;
 template<typename... Ts, template<typename...> class Delegate>
 struct apply<list<Ts...>, Delegate> { using type = Delegate<Ts...>; };
 
+template<typename, template<typename...> class> struct apply_each;
+template<typename... Ts, template<typename...> class Delegate>
+struct apply_each<list<Ts...>, Delegate> { using type = list<Delegate<Ts>...>; };
+
 template<typename... Ts>
 struct length;
 template<> struct length<> { constexpr static std::size_t value = 0; };
@@ -117,7 +121,7 @@ template<typename... Results, typename T, typename... Types, std::size_t end>
 struct slice<list<Results...>, list<T, Types...>, 0, end, std::enable_if_t<end != 0>>
         : slice<list<Results..., T>, list<Types...>, 0, end-1> {};
 template<typename T, typename... Types, std::size_t start, std::size_t end>
-struct slice<list<>, list<T, Types...>, start, end, std::enable_if_t<start != 0>>
+struct slice<list<>, list<T, Types...>, start, end, std::enable_if_t<start != 0 && start != end>>
         : slice<list<>, list<Types...>, start-1, end-1> {};
 
 template<typename, typename> struct zip;
@@ -140,6 +144,10 @@ struct list { using type = list; };
 /// Apply a list of types as arguments to another template
 template<typename List, template<typename...> class Delegate>
 using apply = typename impl::apply<List, Delegate>::type;
+
+/// Apply each type in a list as the argument to another template
+template<typename List, template<typename...> class Delegate>
+using apply_each = typename impl::apply_each<List, Delegate>::type;
 
 /// Get the number of types in a list
 template<typename List>
