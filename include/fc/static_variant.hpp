@@ -328,7 +328,6 @@ public:
     using tag_type = int64_t;
     static_variant() { FC_THROW_EXCEPTION(assert_exception, "Cannot create static_variant with no types"); }
 };
-template<typename... Types> class static_variant<typelist::list<Types...>> : public static_variant<Types...> {};
 
    struct from_static_variant 
    {
