@@ -19,6 +19,19 @@ template<typename...> struct list;
 namespace impl {
 using typelist::list;
 
+template<typename, typename> struct append;
+template<typename... Ts, typename T> struct append<list<Ts...>, T> { using type = list<Ts..., T>; };
+
+template<typename, typename> struct prepend;
+template<typename... Ts, typename T> struct prepend<list<Ts...>, T> { using type = list<T, Ts...>; };
+
+template<typename, typename, typename, size_t, typename=void> struct insert;
+template<typename... Before, typename... After, typename New>
+struct insert<list<Before...>, list<After...>, New, 0, void> { using type = list<Before..., New, After...>; };
+template<typename... Before, typename T, typename... After, typename New, size_t position>
+struct insert<list<Before...>, list<T, After...>, New, position, std::enable_if_t<position != 0>>
+      : insert<list<Before..., T>, list<After...>, New, position-1> {};
+
 template<typename, template<typename...> class> struct apply;
 template<typename... Ts, template<typename...> class Delegate>
 struct apply<list<Ts...>, Delegate> { using type = Delegate<Ts...>; };
@@ -140,6 +153,18 @@ Ret dispatch_helper(Callable& c) { return c(T()); }
 /// The actual list type
 template<typename... Types>
 struct list { using type = list; };
+
+/// Append a new type to the end of a list
+template<typename List, typename NewType>
+using append = typename impl::append<List, NewType>::type;
+
+/// Prepend a new type to the end of a list
+template<typename List, typename NewType>
+using prepend = typename impl::prepend<List, NewType>::type;
+
+/// Insert a new type into the list at the given position
+template<typename List, typename NewType, size_t position>
+using insert = typename impl::insert<list<>, List, NewType, position>::type;
 
 /// Apply a list of types as arguments to another template
 template<typename List, template<typename...> class Delegate>
